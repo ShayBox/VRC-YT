@@ -18,7 +18,7 @@ use actix_web::{
 };
 use regex::Regex;
 use tokio::{sync::RwLock, time};
-use tracing::debug;
+use tracing::{debug, info};
 use vrc_yt_proxy::proxy_video;
 use youtube_dl::download_yt_dlp;
 
@@ -67,18 +67,21 @@ async fn head_video(req: HttpRequest, state: Data<AppState>) -> Result<impl Resp
 async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder> {
     let video_id = &req.uri().to_string();
 
+    debug!("Attempting to parse {video_id} into capture groups");
     let Some(captures) = state.url_regex.captures(video_id) else {
         let response = HttpResponse::BadRequest().body("Failed to capture regex");
         return Ok(response);
     };
 
+    debug!("Attempting to shadow the video_id with capture group one");
     let Some(video_id) = captures.get(1).map(|m| m.as_str()) else {
         let response = HttpResponse::BadRequest().body("Failed to match regex");
         return Ok(response);
     };
 
+    info!("Processing https://youtu.be/{video_id}");
     loop {
-        debug!("Check if {video_id} is in the cache");
+        debug!("Checking if {video_id} is in the cache");
         if let Some(option_video) = {
             let cache = state.cache.read().await;
             cache.get(video_id).cloned()
@@ -87,12 +90,13 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
             if let Some(cached_video) = option_video {
                 debug!("{video_id} is fully cached, checking if it's expired");
                 if cached_video.exp > SystemTime::now() {
-                    debug!("{video_id} is not expired, redirecting");
                     let url = cached_video.url.to_owned();
                     let redirect = Redirect::to(url)
                         .temporary()
                         .respond_to(&req)
                         .map_into_boxed_body();
+
+                    info!("{video_id} was cached");
                     return Ok(redirect);
                 } else {
                     debug!("{video_id} is expired, removing and retrying");
@@ -109,6 +113,7 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
         debug!("{video_id} is not in the cache, partially adding to the cache");
         state.cache.write().await.insert(video_id.to_string(), None);
 
+        debug!("Attempting to proxy {video_id} using yt-dlp");
         let video_url = match proxy_video(video_id.to_string(), &state.yt_dlp_path) {
             Ok(url) => url,
             Err(error) => {
@@ -119,7 +124,7 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
             }
         };
 
-        debug!("Attempting to parse expiration from video_url");
+        debug!("Attempting to parse expiration from the video_url");
         let mut exp = SystemTime::now() + Duration::from_secs(600);
         if let Some(exp_captures) = state.exp_regex.captures(&video_url) {
             if let Some(exp_match) = exp_captures.get(1) {
@@ -130,7 +135,6 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
             }
         };
 
-        debug!("{video_id} is fully cached, redirecting");
         state.cache.write().await.insert(
             video_id.to_string(),
             Some(CachedVideo {
@@ -143,6 +147,8 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
             .temporary()
             .respond_to(&req)
             .map_into_boxed_body();
+
+        info!("{video_id} is now cached");
         return Ok(redirect);
     }
 }
