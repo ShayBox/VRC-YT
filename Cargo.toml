@@ -17,7 +17,7 @@ regex = "1.7.1"
 tokio = "1.26.0"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
-youtube_dl = { version = "0.8.0", default-features = false, features = ["downloader"] }
+youtube_dl = { version = "0.8.0", default-features = false, features = ["downloader", "rustls-tls"] }
 
 [profile.release]
 strip = true
