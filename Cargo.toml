@@ -1,6 +1,6 @@
 [package]
 name = "vrc-yt-proxy"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Shayne Hartford <shaybox@shaybox.com>"]
 edition = "2021"
 description = "Play YouTube videos on Quest in VRChat"
