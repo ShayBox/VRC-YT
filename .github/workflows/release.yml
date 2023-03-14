@@ -37,7 +37,7 @@ jobs:
           cross build --release --target ${{ matrix.target }}
 
       - name: Create Zip Archive
-        run: zip -j ${{ matrix.name }}.zip target/${{ matrix.target }}/release/vrc-yt-proxy
+        run: zip -j ${{ matrix.name }}.zip target/${{ matrix.target }}/release/proxy
 
       - name: Upload Zip Archive
         run: gh release upload ${{ github.ref_name }} ${{ matrix.name }}.zip --clobber
