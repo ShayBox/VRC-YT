@@ -28,6 +28,7 @@ const URL_REGEX: &str = r#"(?x)^/
     (?:www\.)?
     (?:
         youtube\.com/watch\?v=|
+        youtube\.com/shorts/|
         youtu\.be/
     )?
     ([0-9A-Za-z_-]{11})
@@ -79,7 +80,9 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
         return Ok(response);
     };
 
-    info!("Processing https://youtu.be/{video_id}");
+    let video_url = format!("https://youtu.be/{video_id}");
+    info!("Processing {video_url}");
+
     loop {
         debug!("Checking if {video_id} is in the cache");
         if let Some(option_video) = {
@@ -90,13 +93,13 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
             if let Some(cached_video) = option_video {
                 debug!("{video_id} is fully cached, checking if it's expired");
                 if cached_video.exp > SystemTime::now() {
+                    info!("{video_url} was cached");
                     let url = cached_video.url.to_owned();
                     let redirect = Redirect::to(url)
                         .temporary()
                         .respond_to(&req)
                         .map_into_boxed_body();
 
-                    info!("{video_id} was cached");
                     return Ok(redirect);
                 } else {
                     debug!("{video_id} is expired, removing and retrying");
