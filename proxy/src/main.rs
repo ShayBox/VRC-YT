@@ -16,11 +16,10 @@ use actix_web::{
     Responder,
     Result,
 };
-use proxy::proxy_video;
+use common::{download_yt_dlp, proxy_video};
 use regex::Regex;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info};
-use youtube_dl::download_yt_dlp;
 
 const EXP_REGEX: &str = r"exp(?:ir(?:es?|ation))?=(\d+)";
 const URL_REGEX: &str = r#"(?x)^/

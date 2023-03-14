@@ -1,5 +1,5 @@
 [workspace]
-members = ["proxy"]
+members = ["common", "proxy"]
 
 [workspace.package]
 description = "Play YouTube videos on Quest in VRChat"
@@ -11,6 +11,9 @@ repository = "https://github.com/ShayBox/VRC-YT-Proxy"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace.dependencies]
+common = { path = "./common" }
 
 [profile.release]
 strip = true

@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
 };
 
-use youtube_dl::{YoutubeDl, YoutubeDlOutput::SingleVideo};
+pub use youtube_dl::{YoutubeDl, YoutubeDlOutput::SingleVideo, download_yt_dlp};
 
 #[derive(Debug)]
 pub enum Error {
