@@ -1055,19 +1055,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proxy"
-version = "1.1.0"
-dependencies = [
- "actix-files",
- "actix-web",
- "regex",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "youtube_dl",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1678,6 +1665,19 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "vrc-yt-proxy"
+version = "1.1.0"
+dependencies = [
+ "actix-files",
+ "actix-web",
+ "regex",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "youtube_dl",
+]
 
 [[package]]
 name = "wait-timeout"
