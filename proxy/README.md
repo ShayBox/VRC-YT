@@ -6,7 +6,7 @@ Similar to [vroxy](https://github.com/techanon/vroxy) but written in Rust with e
 
 ## Usage:
 
-[You can use my public instance](https://shay.loan)
+You can use my [public instance](https://shay.loan)
 
 ## Self-Hosting:
 

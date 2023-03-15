@@ -11,6 +11,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = "1.0.39"
 youtube_dl = { git = "https://github.com/Shays-Forks/youtube-dl-rs.git", default-features = false, features = ["downloader"] }
 
 [features]

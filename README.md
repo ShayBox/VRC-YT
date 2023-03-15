@@ -13,4 +13,4 @@ Play YouTube videos on Quest in VRChat
 
 ## Usage:
 
-You can use my [public proxy](https://shay.loan)
+You can use my [public proxy](https://shay.loan) or [public world](https://vrchat.com/home/world/wrld_e8f26ea1-a636-4926-90b2-3698b6711655)

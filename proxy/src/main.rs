@@ -16,7 +16,7 @@ use actix_web::{
     Responder,
     Result,
 };
-use common::{download_yt_dlp, proxy_video};
+use common::youtube_dl::{download_yt_dlp, proxy_video};
 use regex::Regex;
 use tokio::{sync::RwLock, time};
 use tracing::{debug, info};
@@ -116,7 +116,7 @@ async fn video(req: HttpRequest, state: Data<AppState>) -> Result<impl Responder
         state.cache.write().await.insert(video_id.to_string(), None);
 
         debug!("Attempting to proxy {video_id} using yt-dlp");
-        let video_url = match proxy_video(video_id.to_string(), &state.yt_dlp_path) {
+        let video_url = match proxy_video(&state.yt_dlp_path, video_id.to_string()) {
             Ok(url) => url,
             Err(error) => {
                 debug!("{video_id} failed to proxy, removing from the cache");
