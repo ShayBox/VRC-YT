@@ -11,15 +11,12 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-files = "0.6.2"
-actix-web = "4.3.1"
-common = { workspace = true, default-features = false }
+common.workspace = true
+log = "0.4.17"
 regex = "1.7.1"
-tokio = "1.26.0"
-tracing = "0.1.37"
-tracing-subscriber = "0.3.16"
+rocket = "0.5.0-rc.2"
 
 [features]
 default = ["rustls-tls"]
-native-tls = ["common/native-tls", "actix-web/openssl"]
-rustls-tls = ["common/rustls-tls", "actix-web/rustls"]
+native-tls = ["common/native-tls"]
+rustls-tls = ["common/rustls-tls"]
