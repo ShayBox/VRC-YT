@@ -1,5 +1,5 @@
 [workspace]
-members = ["common", "proxy"]
+members = ["common", "manager", "proxy"]
 
 [workspace.package]
 description = "Play YouTube videos on Quest in VRChat"
