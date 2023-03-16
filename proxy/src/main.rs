@@ -4,12 +4,14 @@ extern crate rocket;
 
 use std::{
     collections::HashMap,
-    env,
     path::PathBuf,
     time::{Duration, SystemTime},
 };
 
-use common::youtube_dl::{download_yt_dlp, proxy_video};
+use common::{
+    sqlx::{upsert_channel, upsert_video, Channel, Video},
+    youtube_dl::{get_format_url, get_single_video, get_tags, get_youtube_dl_path},
+};
 use regex::Regex;
 use rocket::{
     fs::NamedFile,
@@ -19,6 +21,12 @@ use rocket::{
     Request,
     Rocket,
     State,
+};
+#[cfg(feature = "database")]
+use rocket_db_pools::{
+    sqlx::{self},
+    Connection,
+    Database,
 };
 
 const EXPIRE_REGEX: &str = r"exp(?:ir(?:es?|ation))?=(\d+)";
@@ -33,6 +41,11 @@ const YOUTUBE_REGEX: &str = r#"(?x)^/
     ([0-9A-Za-z_-]{11})
     (?:.+)?
 $"#;
+
+#[cfg(feature = "database")]
+#[derive(Database)]
+#[database("youtube_world")]
+struct YoutubeWorld(sqlx::MySqlPool);
 
 #[derive(Clone)]
 struct CachedVideo {
@@ -54,6 +67,8 @@ async fn index() -> std::io::Result<NamedFile> {
 
 #[catch(404)]
 async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
+    #[cfg(feature = "database")]
+    let mut conn = req.guard::<Connection<YoutubeWorld>>().await.unwrap();
     let state = req.guard::<&'_ State<RocketState>>().await.unwrap();
     let request_uri = req.uri().to_string();
 
@@ -96,8 +111,14 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
         info!("{video_id} is not cached, caching...");
         state.cache.write().await.insert(video_id.to_string(), None);
 
-        debug!("Attempting to proxy video with yt-dlp");
-        let Ok(redirect_url) = proxy_video(&state.youtube_dl_path, &video_url) else {
+        debug!("Attempting to get single video with yt-dlp");
+        let Ok(single_video) = get_single_video(&state.youtube_dl_path, &video_url) else {
+            state.cache.write().await.remove(video_id);
+            return Err("Unable to proxy video with yt-dlp");
+        };
+
+        debug!("Attempting to get format url with yt-dlp");
+        let Ok(redirect_url) = get_format_url(&single_video) else {
             state.cache.write().await.remove(video_id);
             return Err("Unable to proxy video with yt-dlp");
         };
@@ -124,6 +145,27 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
             }),
         );
 
+        #[cfg(feature = "database")]
+        if let Some(channel_id) = &single_video.channel_id {
+            let channel = Channel {
+                id: channel_id.to_owned(),
+                handle: single_video.uploader_id.to_owned(),
+                updated_at: None,
+            };
+
+            let video = Video {
+                id: single_video.id.to_owned(),
+                title: single_video.title.to_owned(),
+                tags: get_tags(&single_video),
+                channel_id: channel.id.to_owned(),
+                channel_handle: channel.handle.to_owned(),
+            };
+
+            // common SQLx version must match rocket_db_pools SQLx version
+            let _ = upsert_channel(&mut *conn, channel).await;
+            let _ = upsert_video(&mut *conn, video).await;
+        }
+
         info!("Processed {video_url}, redirecting...");
         return Ok(Redirect::temporary(redirect_url));
     }
@@ -134,12 +176,20 @@ async fn rocket() -> Rocket<Build> {
     let state = RocketState {
         cache: Default::default(),
         expire_regex: Regex::new(EXPIRE_REGEX).unwrap(),
-        youtube_dl_path: download_yt_dlp(env::temp_dir()).await.unwrap(),
+        youtube_dl_path: get_youtube_dl_path().await.unwrap(),
         youtube_regex: Regex::new(YOUTUBE_REGEX).unwrap(),
     };
 
-    rocket::build()
+    #[allow(unused_mut)]
+    let mut rocket = rocket::build()
         .manage(state)
         .mount("/", routes![index])
-        .register("/", catchers![proxy])
+        .register("/", catchers![proxy]);
+
+    #[cfg(feature = "database")]
+    {
+        rocket = rocket.attach(YoutubeWorld::init());
+    }
+
+    rocket
 }

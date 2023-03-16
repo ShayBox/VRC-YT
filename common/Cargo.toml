@@ -11,10 +11,14 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde_json = { version = "1.0.94", optional = true }
+sqlx = { version = "=0.5.13", features = ["macros", "mysql", "offline", "json", "time"], optional = true }
 thiserror = "1.0.39"
+which = "4.4.0"
 youtube_dl = { git = "https://github.com/Shays-Forks/youtube-dl-rs.git", default-features = false, features = ["downloader"] }
 
 [features]
 default = ["rustls-tls"]
-native-tls = ["youtube_dl/native-tls"]
-rustls-tls = ["youtube_dl/rustls-tls"]
+native-tls = ["youtube_dl/native-tls", "sqlx?/runtime-tokio-native-tls"]
+rustls-tls = ["youtube_dl/rustls-tls", "sqlx?/runtime-tokio-rustls"]
+database = ["dep:sqlx", "dep:serde_json"]

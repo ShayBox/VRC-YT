@@ -1,8 +1,11 @@
-use std::path::Path;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use thiserror::Error;
-pub use youtube_dl::{download_yt_dlp, YoutubeDl};
-use youtube_dl::{SingleVideo, YoutubeDlOutput};
+use which::which;
+use youtube_dl::{download_yt_dlp, Error, SingleVideo, YoutubeDl, YoutubeDlOutput};
 
 #[derive(Debug, Error)]
 pub enum YoutubeError {
@@ -23,6 +26,13 @@ pub enum YoutubeError {
 
     #[error("Unable to find video url")]
     VideoUrl,
+}
+
+pub async fn get_youtube_dl_path() -> Result<PathBuf, Error> {
+    match which("yt-dlp") {
+        Ok(path) => Ok(path),
+        Err(_) => Ok(download_yt_dlp(env::temp_dir()).await?),
+    }
 }
 
 pub fn get_output<P, U>(youtube_dl_path: P, url: U) -> Result<YoutubeDlOutput, YoutubeError>
@@ -52,24 +62,18 @@ where
     Ok(single_video)
 }
 
-pub fn proxy_video<P, U>(youtube_dl_path: P, url: U) -> Result<String, YoutubeError>
-where
-    P: AsRef<Path>,
-    U: Into<String>,
-{
-    let single_video = get_single_video(youtube_dl_path, url)?;
-
-    let Some(video_formats) = single_video.formats else {
+pub fn get_format_url(single_video: &SingleVideo) -> Result<String, YoutubeError> {
+    let Some(ref video_formats) = single_video.formats else {
         return Err(YoutubeError::VideoFormats);
     };
 
-    let Some(video_format_string) = single_video.format else {
+    let Some(ref video_format_string) = single_video.format else {
         return Err(YoutubeError::VideoFormatString);
     };
 
     let Some(video_format) = video_formats.iter().find(|format| {
         if let Some(format_string) = &format.format {
-            format_string == &video_format_string
+            format_string == video_format_string
         } else {
             false
         }
@@ -82,4 +86,12 @@ where
     };
 
     Ok(video_url.to_owned())
+}
+
+pub fn get_tags(single_video: &SingleVideo) -> Vec<String> {
+    single_video
+        .tags
+        .clone()
+        .map(|opt_tags| opt_tags.into_iter().flatten().collect())
+        .unwrap_or_else(Vec::new)
 }

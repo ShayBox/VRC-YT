@@ -15,8 +15,10 @@ common.workspace = true
 log = "0.4.17"
 regex = "1.7.1"
 rocket = "0.5.0-rc.2"
+rocket_db_pools = { version = "=0.1.0-rc.2", features = ["sqlx_mysql"], optional = true }
 
 [features]
-default = ["rustls-tls"]
+default = ["rustls-tls", "database"]
 native-tls = ["common/native-tls"]
 rustls-tls = ["common/rustls-tls"]
+database = ["common/database", "dep:rocket_db_pools"]

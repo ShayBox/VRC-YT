@@ -5,6 +5,8 @@ args = [
     "--release",
     "--target",
     "aarch64-unknown-linux-gnu",
+    "--features",
+    "database",
 ]
 
 [tasks.release]
