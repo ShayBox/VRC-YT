@@ -3,7 +3,7 @@ members = ["common", "manager", "proxy"]
 
 [workspace.package]
 description = "Play YouTube videos on Quest in VRChat"
-version = "1.3.0"
+version = "1.4.0"
 authors = ["Shayne Hartford <shaybox@shaybox.com>"]
 edition = "2021"
 readme = "README.md"
@@ -15,9 +15,9 @@ license = "MIT"
 [workspace.dependencies]
 common = { path = "./common" }
 
+# https://github.com/johnthagen/min-sized-rust
 [profile.release]
-strip = true
-opt-level = "z"
+strip = true      # Automatically strip symbols from the binary.
+opt-level = "z"   # Optimize for size.
 lto = true
 codegen-units = 1
-panic = "abort"

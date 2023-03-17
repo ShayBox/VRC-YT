@@ -5,12 +5,15 @@ use std::{
 
 use thiserror::Error;
 use which::which;
-use youtube_dl::{download_yt_dlp, Error, SingleVideo, YoutubeDl, YoutubeDlOutput};
+use youtube_dl::{download_yt_dlp, Error, Playlist, SingleVideo, YoutubeDl, YoutubeDlOutput};
 
 #[derive(Debug, Error)]
 pub enum YoutubeError {
     #[error("{0}")]
     YoutubeDL(#[from] youtube_dl::Error),
+
+    #[error("Playlists only")]
+    Playlist,
 
     #[error("Single videos only")]
     SingleVideo,
@@ -46,6 +49,20 @@ where
         .socket_timeout("15")
         .run()
         .map_err(YoutubeError::YoutubeDL)
+}
+
+pub fn get_playlist<P, U>(youtube_dl_path: P, url: U) -> Result<Box<Playlist>, YoutubeError>
+where
+    P: AsRef<Path>,
+    U: Into<String>,
+{
+    let output = get_output(youtube_dl_path, url)?;
+
+    let YoutubeDlOutput::Playlist(playlist) = output else {
+        return Err(YoutubeError::Playlist);
+    };
+
+    Ok(playlist)
 }
 
 pub fn get_single_video<P, U>(youtube_dl_path: P, url: U) -> Result<Box<SingleVideo>, YoutubeError>

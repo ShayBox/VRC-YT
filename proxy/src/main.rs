@@ -17,9 +17,7 @@ use rocket::{
     fs::NamedFile,
     response::Redirect,
     tokio::{sync::RwLock, time},
-    Build,
     Request,
-    Rocket,
     State,
 };
 #[cfg(feature = "database")]
@@ -171,8 +169,8 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
     }
 }
 
-#[launch]
-async fn rocket() -> Rocket<Build> {
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
     let state = RocketState {
         cache: Default::default(),
         expire_regex: Regex::new(EXPIRE_REGEX).unwrap(),
@@ -191,5 +189,7 @@ async fn rocket() -> Rocket<Build> {
         rocket = rocket.attach(YoutubeWorld::init());
     }
 
-    rocket
+    let _ = rocket.launch().await?;
+
+    Ok(())
 }

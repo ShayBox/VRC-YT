@@ -34,7 +34,7 @@ jobs:
       - name: Build Release Binary
         run: |
           cargo install cross
-          cross build --release --target ${{ matrix.target }}
+          cross build --release --target ${{ matrix.target }} --package proxy
 
       - name: Create Zip Archive
         run: zip -j ${{ matrix.name }}.zip target/${{ matrix.target }}/release/proxy

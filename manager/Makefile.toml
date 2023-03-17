@@ -1,11 +1,6 @@
 [tasks.build]
 command = "cross"
-args = [
-    "build",
-    "--release",
-    "--target",
-    "aarch64-unknown-linux-gnu",
-]
+args = ["build", "--release", "--target", "aarch64-unknown-linux-gnu"]
 
 [tasks.release]
 dependencies = ["build"]
