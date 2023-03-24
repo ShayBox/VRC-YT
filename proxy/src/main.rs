@@ -8,10 +8,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use common::{
-    sqlx::{upsert_channel, upsert_video, Channel, Video},
-    youtube_dl::{get_format_url, get_single_video, get_tags, get_youtube_dl_path},
-};
+#[cfg(feature = "database")]
+use common::sqlx::{get_tags, insert_channel, upsert_video, Channel, Video};
+use common::youtube_dl::{get_format_url, get_single_video, get_youtube_dl_path};
 use regex::Regex;
 use rocket::{
     fs::NamedFile,
@@ -149,6 +148,7 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
                 id: channel_id.to_owned(),
                 handle: single_video.uploader_id.to_owned(),
                 updated_at: None,
+                video_count: 1,
             };
 
             let video = Video {
@@ -157,11 +157,12 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
                 tags: get_tags(&single_video),
                 channel_id: channel.id.to_owned(),
                 channel_handle: channel.handle.to_owned(),
+                channel_name: None,
             };
 
             // common SQLx version must match rocket_db_pools SQLx version
-            let _ = upsert_channel(&mut *conn, channel).await;
-            let _ = upsert_video(&mut *conn, video).await;
+            let _ = insert_channel(&mut conn, channel).await;
+            let _ = upsert_video(&mut conn, video).await;
         }
 
         info!("Processed {video_url}, redirecting...");
@@ -169,8 +170,8 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
     }
 }
 
-#[rocket::main]
-async fn main() -> Result<(), rocket::Error> {
+#[launch]
+async fn rocket() -> _ {
     let state = RocketState {
         cache: Default::default(),
         expire_regex: Regex::new(EXPIRE_REGEX).unwrap(),
@@ -189,7 +190,5 @@ async fn main() -> Result<(), rocket::Error> {
         rocket = rocket.attach(YoutubeWorld::init());
     }
 
-    let _ = rocket.launch().await?;
-
-    Ok(())
+    rocket
 }

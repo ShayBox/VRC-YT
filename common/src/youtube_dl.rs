@@ -43,10 +43,12 @@ where
     P: AsRef<Path>,
     U: Into<String>,
 {
+    // https://blog.natalie.ee/posts/building-dynamic-vrchat-world/#how-vrchat-media-players-work-and-a-little-optimization
     YoutubeDl::new(url)
-        .format("best*[vcodec!=none][acodec!=none]")
-        .youtube_dl_path(youtube_dl_path)
+        .format("mp4[height>=?64][width>=?64]/best[height>=?64][width>=?64]")
+        .ignore_errors(true)
         .socket_timeout("15")
+        .youtube_dl_path(youtube_dl_path)
         .run()
         .map_err(YoutubeError::YoutubeDL)
 }
@@ -103,12 +105,4 @@ pub fn get_format_url(single_video: &SingleVideo) -> Result<String, YoutubeError
     };
 
     Ok(video_url.to_owned())
-}
-
-pub fn get_tags(single_video: &SingleVideo) -> Vec<String> {
-    single_video
-        .tags
-        .clone()
-        .map(|opt_tags| opt_tags.into_iter().flatten().collect())
-        .unwrap_or_else(Vec::new)
 }

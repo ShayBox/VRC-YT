@@ -3,7 +3,7 @@ members = ["common", "manager", "proxy"]
 
 [workspace.package]
 description = "Play YouTube videos on Quest in VRChat"
-version = "1.4.0"
+version = "1.5.0"
 authors = ["Shayne Hartford <shaybox@shaybox.com>"]
 edition = "2021"
 readme = "README.md"
