@@ -1,3 +1,10 @@
 [tasks.release]
 command = "cargo"
 args = ["clippy"]
+
+[tasks.upload]
+command = "scp"
+args = [
+    "../index.html",
+    "ubuntu@vps.shaybox.com:~/vrc-yt/index.html",
+]

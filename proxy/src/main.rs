@@ -9,7 +9,7 @@ use std::{
 };
 
 #[cfg(feature = "database")]
-use common::sqlx::{get_tags, insert_channel, upsert_video, Channel, Video};
+use common::sqlx::{insert_channel, upsert_video, Channel, Video};
 use common::youtube_dl::{get_format_url, get_single_video, get_youtube_dl_path};
 use regex::Regex;
 use rocket::{
@@ -109,7 +109,7 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
         state.cache.write().await.insert(video_id.to_string(), None);
 
         debug!("Attempting to get single video with yt-dlp");
-        let Ok(single_video) = get_single_video(&state.youtube_dl_path, &video_url) else {
+        let Ok(single_video) = get_single_video(&state.youtube_dl_path, &video_url, true) else {
             state.cache.write().await.remove(video_id);
             return Err("Unable to proxy video with yt-dlp");
         };
@@ -143,26 +143,14 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
         );
 
         #[cfg(feature = "database")]
-        if let Some(channel_id) = &single_video.channel_id {
-            let channel = Channel {
-                id: channel_id.to_owned(),
-                handle: single_video.uploader_id.to_owned(),
-                updated_at: None,
-                video_count: 1,
-            };
-
-            let video = Video {
-                id: single_video.id.to_owned(),
-                title: single_video.title.to_owned(),
-                tags: get_tags(&single_video),
-                channel_id: channel.id.to_owned(),
-                channel_handle: channel.handle.to_owned(),
-                channel_name: None,
-            };
-
+        {
             // common SQLx version must match rocket_db_pools SQLx version
-            let _ = insert_channel(&mut conn, channel).await;
-            let _ = upsert_video(&mut conn, video).await;
+            if let Ok(channel) = Channel::try_from(*single_video.to_owned()) {
+                let _ = insert_channel(&mut conn, channel).await;
+            };
+            if let Ok(video) = Video::try_from(*single_video.to_owned()) {
+                let _ = upsert_video(&mut conn, video).await;
+            }
         }
 
         info!("Processed {video_url}, redirecting...");

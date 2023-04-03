@@ -1,6 +1,6 @@
 [package]
 name = "proxy"
-description = "Proxy YouTube videos for Quest"
+description.workspace = true
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -13,9 +13,9 @@ license.workspace = true
 [dependencies]
 common = { workspace = true, default-features = false }
 log = "0.4.17"
-regex = "1.7.1"
-rocket = "0.5.0-rc.2"
-rocket_db_pools = { version = "=0.1.0-rc.2", features = ["sqlx_mysql"], optional = true }
+regex = "1.7.3"
+rocket = "0.5.0-rc.3"
+rocket_db_pools = { version = "=0.1.0-rc.3", features = ["sqlx_mysql"], optional = true }
 
 [features]
 default = ["rustls-tls", "database"]

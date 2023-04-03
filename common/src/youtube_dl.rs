@@ -38,13 +38,18 @@ pub async fn get_youtube_dl_path() -> Result<PathBuf, Error> {
     }
 }
 
-pub fn get_output<P, U>(youtube_dl_path: P, url: U) -> Result<YoutubeDlOutput, YoutubeError>
+pub fn get_output<P, U>(
+    youtube_dl_path: P,
+    url: U,
+    flat_playlist: bool,
+) -> Result<YoutubeDlOutput, YoutubeError>
 where
     P: AsRef<Path>,
     U: Into<String>,
 {
     // https://blog.natalie.ee/posts/building-dynamic-vrchat-world/#how-vrchat-media-players-work-and-a-little-optimization
     YoutubeDl::new(url)
+        .flat_playlist(flat_playlist)
         .format("mp4[height>=?64][width>=?64]/best[height>=?64][width>=?64]")
         .ignore_errors(true)
         .socket_timeout("15")
@@ -53,12 +58,16 @@ where
         .map_err(YoutubeError::YoutubeDL)
 }
 
-pub fn get_playlist<P, U>(youtube_dl_path: P, url: U) -> Result<Box<Playlist>, YoutubeError>
+pub fn get_playlist<P, U>(
+    youtube_dl_path: P,
+    url: U,
+    flat_playlist: bool,
+) -> Result<Box<Playlist>, YoutubeError>
 where
     P: AsRef<Path>,
     U: Into<String>,
 {
-    let output = get_output(youtube_dl_path, url)?;
+    let output = get_output(youtube_dl_path, url, flat_playlist)?;
 
     let YoutubeDlOutput::Playlist(playlist) = output else {
         return Err(YoutubeError::Playlist);
@@ -67,12 +76,16 @@ where
     Ok(playlist)
 }
 
-pub fn get_single_video<P, U>(youtube_dl_path: P, url: U) -> Result<Box<SingleVideo>, YoutubeError>
+pub fn get_single_video<P, U>(
+    youtube_dl_path: P,
+    url: U,
+    flat_playlist: bool,
+) -> Result<Box<SingleVideo>, YoutubeError>
 where
     P: AsRef<Path>,
     U: Into<String>,
 {
-    let output = get_output(youtube_dl_path, url)?;
+    let output = get_output(youtube_dl_path, url, flat_playlist)?;
 
     let YoutubeDlOutput::SingleVideo(single_video) = output else {
         return Err(YoutubeError::SingleVideo);
