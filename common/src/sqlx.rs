@@ -30,9 +30,9 @@ impl TryFrom<SingleVideo> for Channel {
     type Error = ();
 
     fn try_from(single_video: SingleVideo) -> Result<Self, Self::Error> {
-        if let Some(channel_id) = single_video.channel_id {
+        if let Some(id) = single_video.channel_id {
             let channel = Self {
-                id: channel_id.to_owned(),
+                id,
                 name: single_video.channel,
                 updated_at: None,
                 video_count: 1,
@@ -49,9 +49,9 @@ impl TryFrom<Playlist> for Channel {
     type Error = ();
 
     fn try_from(playlist: Playlist) -> Result<Self, Self::Error> {
-        if let Some(channel_id) = playlist.uploader_id {
+        if let Some(id) = playlist.uploader_id {
             let channel = Self {
-                id: channel_id,
+                id,
                 name: playlist.uploader.to_owned(),
                 updated_at: Some(OffsetDateTime::now_utc()),
                 video_count: playlist.entries.iter().flatten().count() as u64,
@@ -147,6 +147,29 @@ pub async fn get_oldest_channels(
     .await
 }
 
+pub async fn get_biggest_channels(
+    conn: &mut PoolConnection<MySql>,
+    limit: u32,
+) -> Result<Vec<Channel>, Error> {
+    sqlx::query_as::<_, Channel>(
+        r#"
+            SELECT *
+            FROM channels
+            WHERE
+                YEAR(updated_at) < 3000
+                AND
+                video_count > 0
+                AND
+                video_count < 10000
+            ORDER BY video_count DESC
+            LIMIT ?
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(conn)
+    .await
+}
+
 pub async fn get_smallest_channels(
     conn: &mut PoolConnection<MySql>,
     limit: u32,
@@ -155,7 +178,12 @@ pub async fn get_smallest_channels(
         r#"
             SELECT *
             FROM channels
-            WHERE YEAR(updated_at) < 3000
+            WHERE
+                YEAR(updated_at) < 3000
+                AND
+                video_count > 0
+                AND
+                video_count < 10000
             ORDER BY video_count
             LIMIT ?
         "#,
@@ -173,11 +201,10 @@ pub async fn get_tagless_videos(
         r#"
             SELECT *
             FROM videos
-            WHERE tags LIKE ?
+            WHERE tags LIKE 'null'
             LIMIT ?
         "#,
     )
-    .bind(Json("null"))
     .bind(limit)
     .fetch_all(conn)
     .await

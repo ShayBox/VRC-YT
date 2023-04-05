@@ -18,7 +18,7 @@ This proxy was inspired by [vroxy](https://github.com/techanon/vroxy) which has 
 
 ### VRChat Users
 If you're not a [World Creator](#vrchat-world-creators)  
-You can use my proxy on any world with a compatible video player
+You can use my proxy in any world with a compatible video player
 
 ⬇️The original YouTube video URL  
 `https://www.youtube.com/watch?v=dQw4w9WgXcQ`  
@@ -46,7 +46,7 @@ The default binding address and port are intended for use behind a reverse proxy
 Should you not want to use a reverse proxy and accept connections from remote hosts,  
 You can change the address and port using the `ROCKET_ADDRESS` and `ROCKER_PORT` environment variables.
 
-The default binding address `127.0.0.1` only accepts local hosts, using `0.0.0.0` accepts all hosts.
+The default binding address `127.0.0.1` only accepts local hosts, using `0.0.0.0` accepts all hosts.  
 The default binding port is `8000`, ports below 1024 usually require root privilege on Linux.
 
 

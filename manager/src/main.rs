@@ -5,6 +5,7 @@ use clap::{ArgAction, Parser, ValueEnum};
 use common::{
     sqlx::{
         get_all_videos,
+        get_biggest_channels,
         get_oldest_channels,
         get_smallest_channels,
         get_tagless_videos,
@@ -22,11 +23,13 @@ use common::{
     youtube_dl::{get_playlist, get_single_video, get_youtube_dl_path},
 };
 use dotenvy_macro::dotenv;
+use manager::Entries::{Channels, Videos};
 
 #[derive(Clone, Debug, ValueEnum)]
 enum Mode {
     Add,
     Big,
+    Few,
     Gen,
     Old,
     Tag,
@@ -61,10 +64,11 @@ async fn main() -> Result<()> {
 
     match args.mode {
         Mode::Add => add(pool, ytdl, args).await,
-        Mode::Big => chn(pool, ytdl, args).await,
+        Mode::Big => get(pool, ytdl, args).await,
+        Mode::Few => get(pool, ytdl, args).await,
         Mode::Gen => gen(pool, ytdl, args).await,
-        Mode::Old => chn(pool, ytdl, args).await,
-        Mode::Tag => vid(pool, ytdl, args).await,
+        Mode::Old => get(pool, ytdl, args).await,
+        Mode::Tag => get(pool, ytdl, args).await,
     }
 }
 
@@ -106,47 +110,30 @@ async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
     Ok(())
 }
 
-async fn chn(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
+async fn get(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
     let mut conn = pool.acquire().await?;
 
-    let channels = match args.mode {
-        Mode::Add => vec![],
-        Mode::Big => get_smallest_channels(&mut conn, args.limit).await?,
-        Mode::Gen => vec![],
-        Mode::Old => get_oldest_channels(&mut conn, args.limit).await?,
-        Mode::Tag => vec![],
+    let entries = match args.mode {
+        Mode::Add => unreachable!(),
+        Mode::Big => Channels(get_biggest_channels(&mut conn, args.limit).await?),
+        Mode::Few => Channels(get_smallest_channels(&mut conn, args.limit).await?),
+        Mode::Gen => unreachable!(),
+        Mode::Old => Channels(get_oldest_channels(&mut conn, args.limit).await?),
+        Mode::Tag => Videos(get_tagless_videos(&mut conn, args.limit).await?),
     };
 
-    for channel in channels {
-        match try_update_channel(&mut conn, &ytdl, channel.id, args.flat_playlist).await {
-            Ok(_) => (),
-            Err(error) => println!("{error}"),
+    match entries {
+        Channels(channels) => {
+            for channel in channels {
+                let _ = try_update_channel(&mut conn, &ytdl, channel.id, args.flat_playlist).await;
+            }
         }
-    }
-
-    Ok(())
-}
-
-async fn vid(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
-    let mut conn = pool.acquire().await?;
-
-    let videos = match args.mode {
-        Mode::Add => vec![],
-        Mode::Big => vec![],
-        Mode::Gen => vec![],
-        Mode::Old => vec![],
-        Mode::Tag => get_tagless_videos(&mut conn, args.limit).await?,
+        Videos(videos) => {
+            for video in videos {
+                let _ = try_update_video(&mut conn, &ytdl, video, args.flat_playlist).await;
+            }
+        }
     };
-
-    for mut video in videos {
-        let url = format!("https://youtube.com/watch?v={}", video.id);
-        let single_video = get_single_video(&ytdl, url, args.flat_playlist)?;
-
-        video.tags = get_tags(single_video.tags, Some(vec![]));
-
-        println!("Video: {}", video.title);
-        let _ = upsert_video(&mut conn, video).await;
-    }
 
     Ok(())
 }
@@ -172,6 +159,23 @@ async fn try_update_channel(
     }
 
     upsert_channel(pool, channel).await?;
+
+    Ok(())
+}
+
+async fn try_update_video(
+    pool: &mut PoolConnection<MySql>,
+    ytdl: &PathBuf,
+    mut video: Video,
+    flat_playlist: bool,
+) -> Result<()> {
+    let url = format!("https://youtube.com/watch?v={}", video.id);
+    let single_video = get_single_video(ytdl, url, flat_playlist)?;
+
+    video.tags = get_tags(single_video.tags, Some(vec![]));
+
+    println!("Video: {}", video.title);
+    let _ = upsert_video(pool, video).await;
 
     Ok(())
 }
