@@ -12,7 +12,12 @@ license.workspace = true
 
 [dependencies]
 anyhow = "1.0.70"
-clap = { version = "4.2.1", features = ["derive"] }
+clap = { version = "4.2.2", features = ["derive"] }
 common = { workspace = true, features = ["database"] }
-dotenvy_macro = "0.15.7"
+dotenvy_macro = { version = "0.15.7", optional = true }
+indicatif = "0.17.3"
 tokio = { version = "1.27.0", features = ["full"] }
+
+[features]
+default = ["read-write"]
+read-write = ["dep:dotenvy_macro"]

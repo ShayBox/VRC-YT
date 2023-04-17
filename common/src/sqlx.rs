@@ -24,6 +24,7 @@ pub struct Channel {
     pub name: Option<String>,
     pub updated_at: Option<OffsetDateTime>,
     pub video_count: u64,
+    pub playlist: Option<String>,
 }
 
 impl TryFrom<SingleVideo> for Channel {
@@ -36,6 +37,7 @@ impl TryFrom<SingleVideo> for Channel {
                 name: single_video.channel,
                 updated_at: None,
                 video_count: 1,
+                playlist: None,
             };
 
             Ok(channel)
@@ -55,6 +57,7 @@ impl TryFrom<Playlist> for Channel {
                 name: playlist.uploader.to_owned(),
                 updated_at: Some(OffsetDateTime::now_utc()),
                 video_count: playlist.entries.iter().flatten().count() as u64,
+                playlist: None,
             };
 
             Ok(channel)
@@ -70,7 +73,6 @@ pub struct Video {
     pub title: String,
     pub tags: Json<Option<Vec<String>>>,
     pub channel_id: String,
-    pub channel_name: Option<String>,
 }
 
 impl TryFrom<SingleVideo> for Video {
@@ -90,7 +92,6 @@ impl TryFrom<SingleVideo> for Video {
             title,
             tags: get_tags(single_video.tags, None),
             channel_id,
-            channel_name: single_video.channel,
         })
     }
 }
@@ -117,17 +118,68 @@ impl From<PlaylistWrapper> for Vec<Video> {
                     title,
                     tags: get_tags(single_video.tags, None),
                     channel_id: channel_id.to_owned(),
-                    channel_name: single_video.channel,
                 })
             })
             .collect()
     }
 }
 
+pub async fn get_all_channels(conn: &mut PoolConnection<MySql>) -> Result<Vec<Channel>, Error> {
+    sqlx::query_as::<_, Channel>(
+        r#"
+            SELECT *
+            FROM channels
+            ORDER BY name
+        "#,
+    )
+    .fetch_all(conn)
+    .await
+}
+
 pub async fn get_all_videos(conn: &mut PoolConnection<MySql>) -> Result<Vec<Video>, Error> {
-    sqlx::query_as::<_, Video>("SELECT * FROM videos")
-        .fetch_all(conn)
-        .await
+    sqlx::query_as::<_, Video>(
+        r#"
+            SELECT *
+            FROM videos
+            ORDER BY title
+        "#,
+    )
+    .fetch_all(conn)
+    .await
+}
+
+pub async fn get_channels(
+    conn: &mut PoolConnection<MySql>,
+    playlist: String,
+) -> Result<Vec<Channel>, Error> {
+    sqlx::query_as::<_, Channel>(
+        r#"
+            SELECT *
+            FROM channels
+            WHERE playlist = ?
+            ORDER BY name
+        "#,
+    )
+    .bind(playlist)
+    .fetch_all(conn)
+    .await
+}
+
+pub async fn get_videos(
+    conn: &mut PoolConnection<MySql>,
+    channel_id: String,
+) -> Result<Vec<Video>, Error> {
+    sqlx::query_as::<_, Video>(
+        r#"
+            SELECT *
+            FROM videos
+            WHERE channel_id = ?
+            ORDER BY title
+        "#,
+    )
+    .bind(channel_id)
+    .fetch_all(conn)
+    .await
 }
 
 pub async fn get_oldest_channels(
@@ -159,8 +211,6 @@ pub async fn get_biggest_channels(
                 YEAR(updated_at) < 3000
                 AND
                 video_count > 0
-                AND
-                video_count < 10000
             ORDER BY video_count DESC
             LIMIT ?
         "#,
@@ -182,8 +232,6 @@ pub async fn get_smallest_channels(
                 YEAR(updated_at) < 3000
                 AND
                 video_count > 0
-                AND
-                video_count < 10000
             ORDER BY video_count
             LIMIT ?
         "#,
@@ -253,15 +301,15 @@ pub async fn upsert_video(
 ) -> Result<MySqlQueryResult, Error> {
     let sql = if video.tags.is_none() {
         r#"
-            INSERT INTO videos (id, title, tags, channel_id, channel_name)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE title = VALUES(title), channel_id = VALUES(channel_id), channel_name = VALUES(channel_name)
+            INSERT INTO videos (id, title, tags, channel_id)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE title = VALUES(title), channel_id = VALUES(channel_id)
         "#
     } else {
         r#"
-            INSERT INTO videos (id, title, tags, channel_id, channel_name)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE title = VALUES(title), tags = VALUES(tags), channel_id = VALUES(channel_id), channel_name = VALUES(channel_name)
+            INSERT INTO videos (id, title, tags, channel_id)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE title = VALUES(title), tags = VALUES(tags), channel_id = VALUES(channel_id)
         "#
     };
 
@@ -270,7 +318,6 @@ pub async fn upsert_video(
         .bind(&video.title)
         .bind(&json!(video.tags))
         .bind(&video.channel_id)
-        .bind(&video.channel_name)
         .execute(conn)
         .await
 }

@@ -6,6 +6,7 @@ jobs:
   release:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     strategy:
       fail-fast: false
@@ -14,10 +15,17 @@ jobs:
           - name: Linux-aarch64
             target: aarch64-unknown-linux-gnu
             runner: ubuntu-latest
+            zip: proxy,manager
 
           - name: Linux-x86_64
             target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
+            zip: proxy,manager
+
+          - name: Windows-x86_64
+            target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            zip: proxy.exe,manager.exe
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
@@ -31,13 +39,18 @@ jobs:
       - name: Add Rust Target
         run: rustup target add ${{ matrix.target }}
 
-      - name: Build Release Binary
+      - name: Build Release Binaries
         run: |
           cargo install cross
-          cross build --release --target ${{ matrix.target }} --package proxy
+          cross build --release --target ${{ matrix.target }} --no-default-features
 
-      - name: Create Zip Archive
-        run: zip -j ${{ matrix.name }}.zip target/${{ matrix.target }}/release/proxy
+      - name: Create Zip Archive (Windows)
+        if: ${{ matrix.runner == 'windows-latest' }}
+        run: bash -c '7z a ${{ matrix.name }}.zip ./target/${{ matrix.target }}/release/{${{ matrix.zip }}}'
+
+      - name: Create Zip Archive (Other)
+        if: ${{ matrix.runner != 'windows-latest' }}
+        run: zip -j ${{ matrix.name }}.zip target/${{ matrix.target }}/release/{${{ matrix.zip }}}
 
       - name: Upload Zip Archive
         run: gh release upload ${{ github.ref_name }} ${{ matrix.name }}.zip --clobber

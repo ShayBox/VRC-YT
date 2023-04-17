@@ -11,7 +11,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde_json = { version = "1.0.95", optional = true }
+serde_json = { version = "1.0.96", optional = true }
 sqlx = { version = "0.6", features = ["macros", "mysql", "offline", "json", "time"], optional = true }
 thiserror = "1.0.40"
 which = "4.4.0"

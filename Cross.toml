@@ -1,0 +1,4 @@
+# Cross-rs doesn't pass environment variables into the build environment by default
+# https://github.com/cross-rs/cross#passing-environment-variables-into-the-build-environment
+[build.env]
+passthrough = ["DATABASE_URL"]

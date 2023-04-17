@@ -1,15 +1,16 @@
-use std::{cmp::Ordering, fs::File, io::Write, path::PathBuf};
+use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::{bail, Result};
 use clap::{ArgAction, Parser, ValueEnum};
 use common::{
     sqlx::{
-        get_all_videos,
         get_biggest_channels,
+        get_channels,
         get_oldest_channels,
         get_smallest_channels,
         get_tagless_videos,
         get_tags,
+        get_videos,
         upsert_channel,
         upsert_video,
         Channel,
@@ -22,10 +23,16 @@ use common::{
     },
     youtube_dl::{get_playlist, get_single_video, get_youtube_dl_path},
 };
-use dotenvy_macro::dotenv;
+use indicatif::ProgressBar;
 use manager::Entries::{Channels, Videos};
 
-#[derive(Clone, Debug, ValueEnum)]
+#[cfg(feature = "read-write")]
+const DATABASE_URL: &str = dotenvy_macro::dotenv!("DATABASE_URL");
+
+#[cfg(not(feature = "read-write"))]
+const DATABASE_URL: &str = env!("DATABASE_URL");
+
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
 enum Mode {
     Add,
     Big,
@@ -38,29 +45,43 @@ enum Mode {
 #[derive(Clone, Debug, Parser)]
 #[command()]
 struct Args {
+    /// Select a mode of operation.
     #[arg(value_enum, short, long)]
     mode: Mode,
 
+    /// Select a channel to fetch. (Add mode only)
     #[arg(short, long)]
     channel: Option<String>,
 
+    /// Limit of channels/videos to fetch. (Big, Few, Old, and Tag modes only)
     #[arg(short, long, default_value_t = 1)]
     limit: u32,
 
+    /// Output file path for ProTV playlist file. (Gen mode only)
     #[arg(short, long, default_value = "ProTV.txt")]
     output: PathBuf,
 
+    /// True = Fetch just the playlist pages, False = Fetch all videos and metadata.
     #[arg(short, long, default_value_t = true, action = ArgAction::Set)]
     flat_playlist: bool,
+
+    /// Name of the playlist to generate from the database. (Example: General or Music)
+    #[arg(short, long, default_value = "General")]
+    playlist: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
     let ytdl = get_youtube_dl_path().await?;
-    let pool = MySqlPoolOptions::new()
-        .connect(dotenv!("DATABASE_URL"))
-        .await?;
+    let pool = MySqlPoolOptions::new().connect(DATABASE_URL).await?;
+
+    #[cfg(not(feature = "read-write"))]
+    if args.mode != Mode::Gen {
+        println!("This manager binary was compiled with read-only database access");
+        println!("You may only use Gen mode to generate ProTV playlist files");
+        return Ok(());
+    }
 
     match args.mode {
         Mode::Add => add(pool, ytdl, args).await,
@@ -87,25 +108,28 @@ async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
     let mut file = File::create(args.output)?;
     let mut conn = pool.acquire().await?;
 
-    println!("Fetching videos");
-    let mut videos = get_all_videos(&mut conn).await?;
-
-    println!("Sorting videos");
-    videos.sort_by(|a, b| match a.channel_name.cmp(&b.channel_name) {
-        Ordering::Equal => a.title.cmp(&b.title),
-        ordering => ordering,
-    });
+    println!("Fetching channels");
+    let channels = get_channels(&mut conn, args.playlist).await?;
+    let pb = ProgressBar::new(channels.len() as u64);
 
     println!("Generating file");
-    for video in videos {
-        let channel_name = video.channel_name.unwrap_or(video.channel_id);
-        writeln!(file, "@https://shay.loan/{}", &video.id)?;
-        if let Some(tags) = video.tags.0 {
-            writeln!(file, "#{} {}", tags.join(" "), &video.id)?;
+    for channel in channels {
+        pb.inc(1);
+
+        let videos = get_videos(&mut conn, channel.id).await?;
+        for video in videos {
+            let channel_name = channel.name.clone().unwrap_or(video.channel_id);
+            let mut tags = video.tags.0.unwrap_or_default();
+            tags.insert(0, video.id.to_owned());
+
+            writeln!(file, "@https://shay.loan/{}", video.id)?;
+            writeln!(file, "#{}", tags.join(" "))?;
+            writeln!(file, "{} - {}", channel_name, video.title)?;
+            writeln!(file)?;
         }
-        writeln!(file, "{} - {}", channel_name, &video.title)?;
-        writeln!(file)?;
     }
+
+    pb.finish_with_message("Done");
 
     Ok(())
 }

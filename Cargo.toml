@@ -3,11 +3,11 @@ members = ["common", "manager", "proxy"]
 
 [workspace.package]
 description = "Playing YouTube videos cross-platform in VRChat"
-version = "1.6.0"
+version = "1.7.0"
 authors = ["Shayne Hartford <shaybox@shaybox.com>"]
 edition = "2021"
 readme = "README.md"
-repository = "https://github.com/ShayBox/VRC-YT-Proxy"
+repository = "https://github.com/ShayBox/VRC-YT"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
