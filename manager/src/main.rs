@@ -1,7 +1,8 @@
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Result};
 use clap::{ArgAction, Parser, ValueEnum};
+use clap_verbosity_flag::tracing::{InfoLevel, Verbosity};
 use common::{
     sqlx::{
         get_biggest_channels,
@@ -10,6 +11,7 @@ use common::{
         get_smallest_channels,
         get_tagless_videos,
         get_tags,
+        get_unset_channels,
         get_videos,
         upsert_channel,
         upsert_video,
@@ -25,6 +27,7 @@ use common::{
 };
 use indicatif::ProgressBar;
 use manager::Entries::{Channels, Videos};
+use thirtyfour::prelude::*;
 
 #[cfg(feature = "read-write")]
 const DATABASE_URL: &str = dotenvy_macro::dotenv!("DATABASE_URL");
@@ -34,11 +37,25 @@ const DATABASE_URL: &str = env!("DATABASE_URL");
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 enum Mode {
+    /// Add channels to the database
     Add,
+
+    /// Fetch videos from channels with the largest video_count
     Big,
+
+    /// Fetch videos from channels with the smallest video_count
     Few,
+
+    /// Generate a ProTV custom playlist text file
     Gen,
+
+    /// Fetch videos from channels with the oldest update_at
     Old,
+
+    /// Update channels with no playlist set
+    Set,
+
+    /// Fetch videos with no tags set
     Tag,
 }
 
@@ -68,11 +85,23 @@ struct Args {
     /// Name of the playlist to generate from the database. (Example: General or Music)
     #[arg(short, long, default_value = "General")]
     playlist: String,
+
+    /// Chromium based browser binary path
+    #[arg(long, default_value = None)]
+    chromium_binary: Option<PathBuf>,
+
+    #[command(flatten)]
+    verbose: Verbosity<InfoLevel>,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    tracing_subscriber::fmt()
+        .with_max_level(args.verbose.tracing_level_filter())
+        .init();
+
     let ytdl = get_youtube_dl_path().await?;
     let pool = MySqlPoolOptions::new().connect(DATABASE_URL).await?;
 
@@ -89,6 +118,7 @@ async fn main() -> Result<()> {
         Mode::Few => get(pool, ytdl, args).await,
         Mode::Gen => gen(pool, ytdl, args).await,
         Mode::Old => get(pool, ytdl, args).await,
+        Mode::Set => set(pool, ytdl, args).await,
         Mode::Tag => get(pool, ytdl, args).await,
     }
 }
@@ -143,21 +173,94 @@ async fn get(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
         Mode::Few => Channels(get_smallest_channels(&mut conn, args.limit).await?),
         Mode::Gen => unreachable!(),
         Mode::Old => Channels(get_oldest_channels(&mut conn, args.limit).await?),
+        Mode::Set => unreachable!(),
         Mode::Tag => Videos(get_tagless_videos(&mut conn, args.limit).await?),
     };
 
     match entries {
         Channels(channels) => {
             for channel in channels {
-                let _ = try_update_channel(&mut conn, &ytdl, channel.id, args.flat_playlist).await;
+                if let Err(error) =
+                    try_update_channel(&mut conn, &ytdl, channel.id, args.flat_playlist).await
+                {
+                    println!("Error updating channel: {error}");
+                };
             }
         }
         Videos(videos) => {
             for video in videos {
-                let _ = try_update_video(&mut conn, &ytdl, video, args.flat_playlist).await;
+                if let Err(error) =
+                    try_update_video(&mut conn, &ytdl, video, args.flat_playlist).await
+                {
+                    println!("Error updating video: {error}");
+                };
             }
         }
     };
+
+    Ok(())
+}
+
+async fn set(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
+    let mut conn = pool.acquire().await?;
+    let channels = get_unset_channels(&mut conn, args.limit).await?;
+
+    if channels.is_empty() {
+        println!("No channels to set");
+        return Ok(());
+    }
+
+    let mut capabilities = DesiredCapabilities::chrome();
+    if let Some(chromium_binary) = args.chromium_binary {
+        if let Some(path) = chromium_binary.to_str() {
+            capabilities.set_binary(path)?;
+        }
+    }
+    let driver = WebDriver::new("http://localhost:9515", capabilities)
+        .await
+        .expect("Did you forget to start chromedriver?");
+
+    println!("Pre-loading channels, please wait...");
+    let pb = ProgressBar::new(channels.len() as u64);
+    let mut channel_window_handles: HashMap<Channel, WindowHandle> = HashMap::new();
+    for channel in channels {
+        let window_handle = driver.new_tab().await?;
+        std::thread::sleep(Duration::from_secs(1)); // This is required for some reason
+
+        let url = format!("https://youtube.com/channel/{}/videos", channel.id);
+        driver.switch_to_window(window_handle.to_owned()).await?;
+        driver.goto(url).await?;
+
+        channel_window_handles
+            .entry(channel)
+            .or_insert(window_handle);
+
+        pb.inc(1);
+    }
+
+    let pb = ProgressBar::new(channel_window_handles.len() as u64);
+    for (mut channel, window_handle) in channel_window_handles {
+        println!("\n{}", channel.name.clone().unwrap_or(channel.id.clone()));
+        driver.switch_to_window(window_handle).await?;
+
+        let mut playlist = String::new();
+        let stdin = std::io::stdin();
+        stdin.read_line(&mut playlist)?;
+
+        // Strip newline
+        playlist = playlist
+            .strip_suffix("\r\n")
+            .or(playlist.strip_suffix('\n'))
+            .unwrap_or(&playlist)
+            .parse()?;
+
+        channel.playlist = Some(playlist);
+
+        upsert_channel(&mut conn, channel).await?;
+        pb.inc(1);
+    }
+
+    driver.quit().await?;
 
     Ok(())
 }
@@ -179,7 +282,7 @@ async fn try_update_channel(
     let videos: Vec<Video> = PlaylistWrapper::from(*playlist).into();
     for video in videos {
         println!("Video: {}", video.title);
-        let _ = upsert_video(pool, video).await;
+        upsert_video(pool, video).await?;
     }
 
     upsert_channel(pool, channel).await?;

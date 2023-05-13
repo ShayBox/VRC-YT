@@ -18,7 +18,7 @@ impl From<Playlist> for PlaylistWrapper {
     }
 }
 
-#[derive(Debug, FromRow)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, FromRow)]
 pub struct Channel {
     pub id: String,
     pub name: Option<String>,
@@ -67,7 +67,7 @@ impl TryFrom<Playlist> for Channel {
     }
 }
 
-#[derive(Debug, FromRow)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, FromRow)]
 pub struct Video {
     pub id: String,
     pub title: String,
@@ -241,6 +241,23 @@ pub async fn get_smallest_channels(
     .await
 }
 
+pub async fn get_unset_channels(
+    conn: &mut PoolConnection<MySql>,
+    limit: u32,
+) -> Result<Vec<Channel>, Error> {
+    sqlx::query_as::<_, Channel>(
+        r#"
+            SELECT *
+            FROM channels
+            WHERE playlist IS NULL
+            LIMIT ?
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(conn)
+    .await
+}
+
 pub async fn get_tagless_videos(
     conn: &mut PoolConnection<MySql>,
     limit: u32,
@@ -282,15 +299,16 @@ pub async fn upsert_channel(
 ) -> Result<MySqlQueryResult, Error> {
     sqlx::query(
         r#"
-            INSERT INTO channels (id, name, updated_at, video_count)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE id = VALUES(id), name = VALUES(name), updated_at = VALUES(updated_at), video_count = VALUES(video_count)
+            INSERT INTO channels (id, name, updated_at, video_count, playlist)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE id = VALUES(id), name = VALUES(name), updated_at = VALUES(updated_at), video_count = VALUES(video_count), playlist = VALUES(playlist)
         "#,
     )
     .bind(&channel.id)
     .bind(&channel.name)
     .bind(channel.updated_at)
     .bind(channel.video_count)
+    .bind(channel.playlist)
     .execute(conn)
     .await
 }
