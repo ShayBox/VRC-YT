@@ -11,10 +11,10 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde_json = { version = "1.0.96", optional = true }
+serde_json = { version = "1.0", optional = true }
 sqlx = { version = "0.6", features = ["mysql", "json", "time"], optional = true }
-thiserror = "1.0.40"
-which = "4.4.0"
+thiserror = "1.0"
+which = "4.4"
 youtube_dl = { git = "https://github.com/Shays-Forks/youtube-dl-rs.git", branch = "personal", default-features = false, features = ["downloader"] }
 
 [features]

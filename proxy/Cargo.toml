@@ -12,9 +12,9 @@ license.workspace = true
 
 [dependencies]
 common = { workspace = true }
-log = "0.4.17"
-regex = "1.8.1"
-rocket = "0.5.0-rc.3"
+log = "0.4"
+regex = "1.8"
+rocket = "=0.5.0-rc.3"
 rocket_db_pools = { version = "=0.1.0-rc.3", features = ["sqlx_mysql"], optional = true }
 
 [features]

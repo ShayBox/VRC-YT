@@ -7,6 +7,7 @@ pub enum Entries {
     Videos(Vec<Video>),
 }
 
+#[allow(clippy::type_complexity)]
 pub enum EntriesFn {
     ChannelsFn(
         fn(&mut PoolConnection<MySql>, u32) -> dyn Future<Output = Result<Vec<Channel>, Error>>,
