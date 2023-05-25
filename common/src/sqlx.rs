@@ -250,6 +250,7 @@ pub async fn get_unset_channels(
             SELECT *
             FROM channels
             WHERE playlist IS NULL
+            ORDER BY video_count DESC
             LIMIT ?
         "#,
     )

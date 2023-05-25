@@ -28,6 +28,7 @@ use common::{
 use indicatif::ProgressBar;
 use manager::Entries::{Channels, Videos};
 use thirtyfour::prelude::*;
+use tracing_subscriber::EnvFilter;
 
 #[cfg(feature = "read-write")]
 const DATABASE_URL: &str = dotenvy_macro::dotenv!("DATABASE_URL");
@@ -74,15 +75,15 @@ struct Args {
     #[arg(short, long, default_value_t = 1)]
     limit: u32,
 
-    /// Output file path for ProTV playlist file. (Gen mode only)
-    #[arg(short, long, default_value = "ProTV.txt")]
-    output: PathBuf,
+    /// Output directory path for the ProTV playlist files. (Gen mode only)
+    #[arg(short, long, default_value = ".")]
+    output_dir: PathBuf,
 
     /// True = Fetch just the playlist pages, False = Fetch all videos and metadata.
     #[arg(short, long, default_value_t = true, action = ArgAction::Set)]
     flat_playlist: bool,
 
-    /// Name of the playlist to generate from the database. (Example: General or Music)
+    /// Name of the playlist to generate from the database. (Example: General, Music, Misc, FNF, etc)
     #[arg(short, long, default_value = "General")]
     playlist: String,
 
@@ -96,9 +97,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new("sqlx=ERROR"))
         .with_max_level(args.verbose.tracing_level_filter())
         .init();
 
@@ -107,9 +109,9 @@ async fn main() -> Result<()> {
 
     #[cfg(not(feature = "read-write"))]
     if args.mode != Mode::Gen {
-        println!("This manager binary was compiled with read-only database access");
-        println!("You may only use Gen mode to generate ProTV playlist files");
-        return Ok(());
+        args.mode = Mode::Gen;
+        println!("This binary was compiled read-only");
+        println!("You may only use playlist generation mode");
     }
 
     match args.mode {
@@ -135,7 +137,8 @@ async fn add(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
 }
 
 async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
-    let mut file = File::create(args.output)?;
+    let filename = format!("{}.txt", args.playlist);
+    let mut file = File::create(args.output_dir.join(filename))?;
     let mut conn = pool.acquire().await?;
 
     println!("Fetching channels");
