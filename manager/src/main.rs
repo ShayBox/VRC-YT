@@ -83,9 +83,9 @@ struct Args {
     #[arg(short, long, default_value_t = true, action = ArgAction::Set)]
     flat_playlist: bool,
 
-    /// Name of the playlist to generate from the database. (Example: General, Music, Misc, FNF, etc)
-    #[arg(short, long, default_value = "General")]
-    playlist: String,
+    /// Name of the playlists to generate from the database.
+    #[arg(short, long, value_delimiter = ',')]
+    playlists: Vec<String>,
 
     /// Chromium based browser binary path
     #[arg(long, default_value = None)]
@@ -97,6 +97,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    #[cfg_attr(feature = "read-write", allow(unused_mut))]
     let mut args = Args::parse();
 
     tracing_subscriber::fmt()
@@ -137,32 +138,36 @@ async fn add(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
 }
 
 async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
-    let filename = format!("{}.txt", args.playlist);
+    let playlist = args.playlists.join("-");
+    let filename = format!("{playlist}.txt");
     let mut file = File::create(args.output_dir.join(filename))?;
     let mut conn = pool.acquire().await?;
 
-    println!("Fetching channels");
-    let channels = get_channels(&mut conn, args.playlist).await?;
-    let pb = ProgressBar::new(channels.len() as u64);
+    for playlist in args.playlists {
+        println!("Fetching channels of playlist: {playlist}");
+        let channels = get_channels(&mut conn, playlist).await?;
+        let pb = ProgressBar::new(channels.len() as u64);
 
-    println!("Generating file");
-    for channel in channels {
-        pb.inc(1);
+        for channel in channels {
+            let channel_name = channel.name.clone().unwrap_or(channel.id.to_owned());
+            println!("Writing videos of channel: {channel_name}");
 
-        let videos = get_videos(&mut conn, channel.id).await?;
-        for video in videos {
-            let channel_name = channel.name.clone().unwrap_or(video.channel_id);
-            let mut tags = video.tags.0.unwrap_or_default();
-            tags.insert(0, video.id.to_owned());
+            let videos = get_videos(&mut conn, channel.id).await?;
+            for video in videos {
+                let mut tags = video.tags.0.unwrap_or_default();
+                tags.insert(0, video.id.to_owned());
 
-            writeln!(file, "@https://shay.loan/{}", video.id)?;
-            writeln!(file, "#{}", tags.join(" "))?;
-            writeln!(file, "{} - {}", channel_name, video.title)?;
-            writeln!(file)?;
+                writeln!(file, "@https://shay.loan/{}", video.id)?;
+                writeln!(file, "#{}", tags.join(" "))?;
+                writeln!(file, "{} - {}", channel_name, video.title)?;
+                writeln!(file)?;
+            }
+
+            pb.inc(1);
         }
-    }
 
-    pb.finish_with_message("Done");
+        pb.finish_with_message("Done");
+    }
 
     Ok(())
 }
