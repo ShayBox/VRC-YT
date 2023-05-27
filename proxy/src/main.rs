@@ -41,7 +41,7 @@ $"#;
 
 #[cfg(feature = "database")]
 #[derive(Database)]
-#[database("youtube_world")]
+#[database("vrc_yt")]
 struct YoutubeWorld(sqlx::MySqlPool);
 
 #[derive(Clone)]

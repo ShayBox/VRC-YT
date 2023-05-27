@@ -276,7 +276,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "common"
-version = "1.8.2"
+version = "1.8.3"
 dependencies = [
  "serde_json",
  "sqlx",
@@ -1076,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "manager"
-version = "1.8.2"
+version = "1.8.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1518,7 +1518,7 @@ dependencies = [
 
 [[package]]
 name = "proxy"
-version = "1.8.2"
+version = "1.8.3"
 dependencies = [
  "common",
  "log",
