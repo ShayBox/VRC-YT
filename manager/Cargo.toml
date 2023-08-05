@@ -11,14 +11,14 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-clap = { version = "4.3", features = ["derive"] }
-clap-verbosity-flag = { git = "https://github.com/Shays-Forks/clap-verbosity-flag.git", version = "2.1", features = ["tracing"] }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+clap-verbosity-flag = { git = "https://github.com/Shays-Forks/clap-verbosity-flag.git", features = ["tracing"] }
 common = { workspace = true, features = ["rustls-tls", "database"] }
 dotenvy_macro = { version = "0.15", optional = true }
 indicatif = "0.17"
 thirtyfour = "0.32.0-rc"
-tokio = { version = "1.28", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [features]
