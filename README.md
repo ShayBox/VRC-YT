@@ -10,6 +10,9 @@
 # VRC-YT
 Playing [YouTube] videos cross-platform in [VRChat]
 
+## Archive Notice:
+VRChat added `yt-dlp` support to Android/Quest, making this proxy useless.
+
 ## Proxy
 The [proxy](/proxy) package contains the source code for my [public proxy](https://shay.loan)  
 You can also self-host your own instance using a [release](https://github.com/shaybox/vrc-yt/releases/latest) build  
