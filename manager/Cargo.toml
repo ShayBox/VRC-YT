@@ -13,12 +13,13 @@ license.workspace = true
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-clap-verbosity-flag = { git = "https://github.com/Shays-Forks/clap-verbosity-flag.git", features = ["tracing"] }
+clap-verbosity-flag = "2"
 common = { workspace = true, features = ["rustls-tls", "database"] }
 dotenvy_macro = { version = "0.15", optional = true }
 indicatif = "0.17"
 thirtyfour = "0.32.0-rc"
 tokio = { version = "1", features = ["full"] }
+tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [features]

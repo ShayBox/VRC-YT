@@ -12,12 +12,12 @@ license.workspace = true
 
 [dependencies]
 serde_json = { version = "1", optional = true }
-sqlx = { version = "0.6", features = ["mysql", "json", "time"], optional = true }
+sqlx = { version = "0.7", features = ["mysql", "json", "time"], optional = true }
 thiserror = "1"
-which = "4"
-youtube_dl = { git = "https://github.com/Shays-Forks/youtube-dl-rs.git", branch = "personal", default-features = false, features = ["downloader"] }
+which = "6"
+youtube_dl = "0.9"
 
 [features]
-native-tls = ["youtube_dl/native-tls", "sqlx?/runtime-tokio-native-tls"]
-rustls-tls = ["youtube_dl/rustls-tls", "sqlx?/runtime-tokio-rustls"]
+native-tls = ["youtube_dl/downloader-native-tls", "sqlx?/runtime-tokio-native-tls"]
+rustls-tls = ["youtube_dl/downloader-rustls-tls", "sqlx?/runtime-tokio-rustls"]
 database = ["dep:sqlx", "dep:serde_json"]

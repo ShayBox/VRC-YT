@@ -146,10 +146,10 @@ async fn proxy(req: &Request<'_>) -> Result<Redirect, &'static str> {
         {
             // common SQLx version must match rocket_db_pools SQLx version
             if let Ok(channel) = Channel::try_from(*single_video.to_owned()) {
-                let _ = insert_channel(&mut conn, channel).await;
+                let _ = insert_channel(&mut *conn, channel).await;
             };
             if let Ok(video) = Video::try_from(*single_video.to_owned()) {
-                let _ = upsert_video(&mut conn, video).await;
+                let _ = upsert_video(&mut *conn, video).await;
             }
         }
 

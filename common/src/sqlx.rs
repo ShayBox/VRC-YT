@@ -1,4 +1,5 @@
 use serde_json::json;
+use sqlx::MySqlConnection;
 pub use sqlx::{
     mysql::{MySqlPoolOptions, MySqlQueryResult},
     pool::PoolConnection,
@@ -103,7 +104,6 @@ impl From<PlaylistWrapper> for Vec<Video> {
             .entries
             .unwrap_or_default()
             .into_iter()
-            .flatten()
             .filter_map(|single_video| {
                 let Some(channel_id) = &playlist.0.uploader_id else {
                     return None;
@@ -124,7 +124,7 @@ impl From<PlaylistWrapper> for Vec<Video> {
     }
 }
 
-pub async fn get_all_channels(conn: &mut PoolConnection<MySql>) -> Result<Vec<Channel>, Error> {
+pub async fn get_all_channels(conn: &mut MySqlConnection) -> Result<Vec<Channel>, Error> {
     sqlx::query_as::<_, Channel>(
         r#"
             SELECT *
@@ -136,7 +136,7 @@ pub async fn get_all_channels(conn: &mut PoolConnection<MySql>) -> Result<Vec<Ch
     .await
 }
 
-pub async fn get_all_videos(conn: &mut PoolConnection<MySql>) -> Result<Vec<Video>, Error> {
+pub async fn get_all_videos(conn: &mut MySqlConnection) -> Result<Vec<Video>, Error> {
     sqlx::query_as::<_, Video>(
         r#"
             SELECT *
@@ -149,7 +149,7 @@ pub async fn get_all_videos(conn: &mut PoolConnection<MySql>) -> Result<Vec<Vide
 }
 
 pub async fn get_channels(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     playlist: String,
 ) -> Result<Vec<Channel>, Error> {
     sqlx::query_as::<_, Channel>(
@@ -166,7 +166,7 @@ pub async fn get_channels(
 }
 
 pub async fn get_videos(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     channel_id: String,
 ) -> Result<Vec<Video>, Error> {
     sqlx::query_as::<_, Video>(
@@ -183,7 +183,7 @@ pub async fn get_videos(
 }
 
 pub async fn get_oldest_channels(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     limit: u32,
 ) -> Result<Vec<Channel>, Error> {
     sqlx::query_as::<_, Channel>(
@@ -200,7 +200,7 @@ pub async fn get_oldest_channels(
 }
 
 pub async fn get_biggest_channels(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     limit: u32,
 ) -> Result<Vec<Channel>, Error> {
     sqlx::query_as::<_, Channel>(
@@ -221,7 +221,7 @@ pub async fn get_biggest_channels(
 }
 
 pub async fn get_smallest_channels(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     limit: u32,
 ) -> Result<Vec<Channel>, Error> {
     sqlx::query_as::<_, Channel>(
@@ -242,7 +242,7 @@ pub async fn get_smallest_channels(
 }
 
 pub async fn get_unset_channels(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     limit: u32,
 ) -> Result<Vec<Channel>, Error> {
     sqlx::query_as::<_, Channel>(
@@ -260,7 +260,7 @@ pub async fn get_unset_channels(
 }
 
 pub async fn get_tagless_videos(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     limit: u32,
 ) -> Result<Vec<Video>, Error> {
     sqlx::query_as::<_, Video>(
@@ -277,7 +277,7 @@ pub async fn get_tagless_videos(
 }
 
 pub async fn insert_channel(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     channel: Channel,
 ) -> Result<MySqlQueryResult, Error> {
     sqlx::query(
@@ -295,7 +295,7 @@ pub async fn insert_channel(
 }
 
 pub async fn upsert_channel(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     channel: Channel,
 ) -> Result<MySqlQueryResult, Error> {
     sqlx::query(
@@ -315,7 +315,7 @@ pub async fn upsert_channel(
 }
 
 pub async fn upsert_video(
-    conn: &mut PoolConnection<MySql>,
+    conn: &mut MySqlConnection,
     video: Video,
 ) -> Result<MySqlQueryResult, Error> {
     let sql = if video.tags.is_none() {

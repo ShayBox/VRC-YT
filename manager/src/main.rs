@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs::File, io::Write, path::PathBuf, time::Durati
 
 use anyhow::{bail, Result};
 use clap::{ArgAction, Parser, ValueEnum};
-use clap_verbosity_flag::tracing::{InfoLevel, Verbosity};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
 use common::{
     sqlx::{
         get_biggest_channels,
@@ -28,6 +28,7 @@ use common::{
 use indicatif::ProgressBar;
 use manager::Entries::{Channels, Videos};
 use thirtyfour::prelude::*;
+use tracing_log::AsTrace;
 use tracing_subscriber::EnvFilter;
 
 #[cfg(feature = "read-write")]
@@ -102,7 +103,7 @@ async fn main() -> Result<()> {
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::new("sqlx=ERROR"))
-        .with_max_level(args.verbose.tracing_level_filter())
+        .with_max_level(args.verbose.log_level_filter().as_trace())
         .init();
 
     let ytdl = get_youtube_dl_path().await?;
@@ -145,7 +146,7 @@ async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
 
     for playlist in args.playlists {
         println!("Fetching channels of playlist: {playlist}");
-        let channels = get_channels(&mut conn, playlist).await?;
+        let channels = get_channels(&mut *conn, playlist).await?;
         let pb = ProgressBar::new(channels.len() as u64);
 
         for channel in channels {
