@@ -12,12 +12,18 @@ license.workspace = true
 
 [dependencies]
 serde_json = { version = "1", optional = true }
-sqlx = { version = "0.7", features = ["mysql", "json", "time"], optional = true }
+sqlx = { version = "0.7", features = ["json", "mysql", "time"], optional = true }
 thiserror = "1"
 which = "6"
 youtube_dl = "0.9"
 
 [features]
-native-tls = ["youtube_dl/downloader-native-tls", "sqlx?/runtime-tokio-native-tls"]
-rustls-tls = ["youtube_dl/downloader-rustls-tls", "sqlx?/runtime-tokio-rustls"]
-database = ["dep:sqlx", "dep:serde_json"]
+database = ["dep:serde_json", "dep:sqlx"]
+native-tls = ["sqlx?/runtime-tokio-native-tls", "youtube_dl/downloader-native-tls"]
+rustls-tls = ["sqlx?/runtime-tokio-rustls", "youtube_dl/downloader-rustls-tls"]
+
+[lints.clippy]
+missing_errors_doc = "allow"
+multiple_crate_versions = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

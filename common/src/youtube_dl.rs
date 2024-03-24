@@ -104,11 +104,10 @@ pub fn get_format_url(single_video: &SingleVideo) -> Result<String, YoutubeError
     };
 
     let Some(video_format) = video_formats.iter().find(|format| {
-        if let Some(format_string) = &format.format {
-            format_string == video_format_string
-        } else {
-            false
-        }
+        format
+            .format
+            .as_ref()
+            .map_or(false, |format_string| format_string == video_format_string)
     }) else {
         return Err(YoutubeError::VideoFormat);
     };

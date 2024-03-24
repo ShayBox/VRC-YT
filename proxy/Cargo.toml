@@ -12,13 +12,19 @@ license.workspace = true
 
 [dependencies]
 common = { workspace = true }
-log = "0.4"
-regex = "1.8"
+dotenvy = { version = "0.15", optional = true }
+maud = { version = "0.26", features = ["rocket"] }
+regex = "1"
 rocket = "0.5"
-rocket_db_pools = { version = "0.1", features = ["sqlx_mysql"], optional = true }
+rocket_db_pools = { version = "0.1", optional = true, features = ["sqlx_mysql"] }
 
 [features]
-default = ["rustls-tls", "database"]
+default = ["database", "rustls-tls"]
+database = ["common/database", "dep:dotenvy", "dep:rocket_db_pools"]
 native-tls = ["common/native-tls"]
 rustls-tls = ["common/rustls-tls"]
-database = ["common/database", "dep:rocket_db_pools"]
+
+[lints.clippy]
+multiple_crate_versions = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

@@ -42,16 +42,16 @@ enum Mode {
     /// Add channels to the database
     Add,
 
-    /// Fetch videos from channels with the largest video_count
+    /// Fetch videos from channels with the largest `video_count`
     Big,
 
-    /// Fetch videos from channels with the smallest video_count
+    /// Fetch videos from channels with the smallest `video_count`
     Few,
 
-    /// Generate a ProTV custom playlist text file
+    /// Generate a `ProTV` custom playlist text file
     Gen,
 
-    /// Fetch videos from channels with the oldest update_at
+    /// Fetch videos from channels with the oldest `update_at`
     Old,
 
     /// Update channels with no playlist set
@@ -76,7 +76,7 @@ struct Args {
     #[arg(short, long, default_value_t = 1)]
     limit: u32,
 
-    /// Output directory path for the ProTV playlist files. (Gen mode only)
+    /// Output directory path for the `ProTV` playlist files. (Gen mode only)
     #[arg(short, long, default_value = ".")]
     output_dir: PathBuf,
 
@@ -118,12 +118,9 @@ async fn main() -> Result<()> {
 
     match args.mode {
         Mode::Add => add(pool, ytdl, args).await,
-        Mode::Big => get(pool, ytdl, args).await,
-        Mode::Few => get(pool, ytdl, args).await,
         Mode::Gen => gen(pool, ytdl, args).await,
-        Mode::Old => get(pool, ytdl, args).await,
         Mode::Set => set(pool, ytdl, args).await,
-        Mode::Tag => get(pool, ytdl, args).await,
+        Mode::Tag | Mode::Old | Mode::Few | Mode::Big => get(pool, ytdl, args).await,
     }
 }
 
@@ -138,6 +135,7 @@ async fn add(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::no_effect_underscore_binding)]
 async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
     let playlist = args.playlists.join("-");
     let filename = format!("{playlist}.txt");
@@ -146,17 +144,17 @@ async fn gen(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
 
     for playlist in args.playlists {
         println!("Fetching channels of playlist: {playlist}");
-        let channels = get_channels(&mut *conn, playlist).await?;
+        let channels = get_channels(&mut conn, playlist).await?;
         let pb = ProgressBar::new(channels.len() as u64);
 
         for channel in channels {
-            let channel_name = channel.name.clone().unwrap_or(channel.id.to_owned());
+            let channel_name = channel.name.clone().unwrap_or_else(|| channel.id.clone());
             println!("Writing videos of channel: {channel_name}");
 
             let videos = get_videos(&mut conn, channel.id).await?;
             for video in videos {
                 let mut tags = video.tags.0.unwrap_or_default();
-                tags.insert(0, video.id.to_owned());
+                tags.insert(0, video.id.clone());
 
                 writeln!(file, "@https://shay.loan/{}", video.id)?;
                 writeln!(file, "#{}", tags.join(" "))?;
@@ -177,12 +175,10 @@ async fn get(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
     let mut conn = pool.acquire().await?;
 
     let entries = match args.mode {
-        Mode::Add => unreachable!(),
+        Mode::Add | Mode::Gen | Mode::Set => unreachable!(),
         Mode::Big => Channels(get_biggest_channels(&mut conn, args.limit).await?),
         Mode::Few => Channels(get_smallest_channels(&mut conn, args.limit).await?),
-        Mode::Gen => unreachable!(),
         Mode::Old => Channels(get_oldest_channels(&mut conn, args.limit).await?),
-        Mode::Set => unreachable!(),
         Mode::Tag => Videos(get_tagless_videos(&mut conn, args.limit).await?),
     };
 
@@ -210,6 +206,7 @@ async fn get(pool: Pool<MySql>, ytdl: PathBuf, args: Args) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::no_effect_underscore_binding)]
 async fn set(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
     let mut conn = pool.acquire().await?;
     let channels = get_unset_channels(&mut conn, args.limit).await?;
@@ -237,7 +234,7 @@ async fn set(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
         std::thread::sleep(Duration::from_secs(1)); // This is required for some reason
 
         let url = format!("https://youtube.com/channel/{}/videos", channel.id);
-        driver.switch_to_window(window_handle.to_owned()).await?;
+        driver.switch_to_window(window_handle.clone()).await?;
         driver.goto(url).await?;
 
         channel_window_handles
@@ -249,7 +246,8 @@ async fn set(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
 
     let pb = ProgressBar::new(channel_window_handles.len() as u64);
     for (mut channel, window_handle) in channel_window_handles {
-        println!("\n{}", channel.name.clone().unwrap_or(channel.id.clone()));
+        let channel_name = channel.name.clone().unwrap_or_else(|| channel.id.clone());
+        println!("\n{channel_name}");
         driver.switch_to_window(window_handle).await?;
 
         let mut playlist = String::new();
@@ -259,7 +257,7 @@ async fn set(pool: Pool<MySql>, _ytdl: PathBuf, args: Args) -> Result<()> {
         // Strip newline
         playlist = playlist
             .strip_suffix("\r\n")
-            .or(playlist.strip_suffix('\n'))
+            .or_else(|| playlist.strip_suffix('\n'))
             .unwrap_or(&playlist)
             .parse()?;
 
@@ -284,7 +282,7 @@ async fn try_update_channel(
     println!("Fetching {url}");
 
     let playlist = get_playlist(ytdl, &url, flat_playlist)?;
-    let Ok(channel) = Channel::try_from(*playlist.to_owned()) else {
+    let Ok(channel) = Channel::try_from(*playlist.clone()) else {
         bail!("Channel not found");
     };
 

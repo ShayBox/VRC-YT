@@ -14,7 +14,7 @@ license.workspace = true
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 clap-verbosity-flag = "2"
-common = { workspace = true, features = ["rustls-tls", "database"] }
+common = { workspace = true, features = ["database", "rustls-tls"] }
 dotenvy_macro = { version = "0.15", optional = true }
 indicatif = "0.17"
 thirtyfour = "0.32.0-rc"
@@ -25,3 +25,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [features]
 default = ["read-write"]
 read-write = ["dep:dotenvy_macro"]
+
+[lints.clippy]
+multiple_crate_versions = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

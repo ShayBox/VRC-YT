@@ -10,7 +10,7 @@
 # VRC-YT
 Playing [YouTube] videos cross-platform in [VRChat]
 
-## Archive Notice:
+## Notice:
 VRChat added `yt-dlp` support to Android/Quest, making this proxy useless.
 
 ## Proxy
